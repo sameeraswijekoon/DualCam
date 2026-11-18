@@ -1,0 +1,45 @@
+DualCam + OBS + Zoom - Setup like OBS software
+===============================================
+Goal: In your Zoom meeting (zoom.com / Zoom app), other people see BOTH
+cameras inside your video - the same way OBS software sends video to Zoom.
+
+THE CHAIN (this is exactly how OBS works)
+DualCam web page (mixes Cam 1 + Cam 2)
+        -> OBS (takes the DualCam picture)
+        -> OBS Virtual Camera (OBS creates a camera Windows can see)
+        -> Zoom (you select "OBS Virtual Camera" as your camera)
+
+WHY THE CHAIN IS NEEDED
+A web page cannot register itself as a Windows camera. Only a driver can,
+and OBS installs that driver. No web app, and no portable EXE, can skip it.
+
+SETUP - ONE TIME
+1. Install OBS Studio from obsproject.com (this one install needs admin).
+2. You need a public HTTPS link for the DualCam page that OBS can open.
+   A Muse card only opens inside Muse - OBS cannot use it.
+   Use your GitHub Pages link (like your other apps):
+   https://sameeraswijekoon.github.io/DualCam/
+   (works after the page is pushed to GitHub - ask Muse to push it)
+3. OBS > Sources (bottom) > + > Browser Source > Create new > OK
+   URL: paste the DualCam link above
+   Width: 1280   Height: 720
+   Tick: "Control audio via OBS" OFF, leave the rest default > OK
+4. In the DualCam page inside OBS, if controls are shown:
+   Detect Cameras, select Cam 1 + Cam 2, START, then Clean Output.
+   Tip: right-click the source > Interact - you can click buttons there.
+5. Drag the picture corners so it fills the black OBS canvas exactly.
+
+EVERY MEETING - 3 CLICKS
+1. Open OBS - check both cameras are moving. Click "Start Virtual Camera"
+   (Controls panel, right side).
+2. Open Zoom (app or zoom.com join) > Settings (gear) > Video >
+   Camera: select "OBS Virtual Camera".
+3. Join the meeting. Your Zoom video tile now shows both cameras.
+   To change layout, change it in DualCam (Side by Side / Picture in
+   Picture) - Zoom updates live, no need to rejoin.
+
+IF YOU CANNOT INSTALL OBS ON THAT LAPTOP (no admin at all)
+Use Share Screen instead - it always works:
+Zoom meeting > Share Screen > DualCam browser window (Clean Output ON) > Share.
+People see both cameras full screen, with a "sharing screen" banner.
+That is the only difference.

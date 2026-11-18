@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DualCam for Zoom v2 - Web Version (No Install)</title>
+<style>
+body{font-family:system-ui,Arial,sans-serif;background:#111;color:#eee;margin:16px}
+h2{margin:4px 0} select,button{padding:9px 12px;border-radius:8px;border:1px solid #444;background:#222;color:#eee;margin:4px}
+button{background:#0a7d4f;color:#fff;border:0;font-weight:700;cursor:pointer} button.stop{background:#c33}
+canvas{width:100%;max-width:1100px;background:#000;border-radius:12px;display:block}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.note{color:#bbb;max-width:1000px;line-height:1.55}
+#err{display:none;background:#5a1111;border:1px solid #c33;color:#ffd7d7;padding:10px 12px;border-radius:8px;max-width:1000px;white-space:pre-wrap}
+#ok{display:none;background:#0d3b26;border:1px solid #0a7d4f;color:#c9f5df;padding:10px 12px;border-radius:8px;max-width:1000px}
+.previews{display:flex;gap:10px;flex-wrap:wrap}.previews figure{margin:6px 0}.previews video{width:320px;max-width:44vw;background:#000;border-radius:8px;border:1px solid #333}
+figcaption{color:#aaa;font-size:13px;margin-top:4px}
+</style></head><body>
+<h2>DualCam for Zoom - Web Version v2</h2>
+<p class="note"><b>Use Chrome or Edge.</b> Firefox and file:// pages can block cameras. Best is the hosted HTTPS link version.
+Steps: 1) Plug in both cameras, close Zoom / Teams (they lock cameras). 2) Click <b>Detect Cameras</b> and Allow.
+3) Check both small previews show a picture. 4) Layout = Side by Side, click <b>START</b>. 5) In Zoom: Share Screen &gt; this browser window.</p>
+<div id="err"></div><div id="ok"></div>
+<div class="row">
+<label>Camera 1 <select id="c1"></select></label>
+<label>Camera 2 <select id="c2"></select></label>
+<label>Layout <select id="layout">
+<option value="side" selected>Side by Side</option><option value="pip">Picture in Picture</option>
+<option value="top">Top / Bottom</option><option value="1">Cam 1 Only</option><option value="2">Cam 2 Only</option></select></label>
+<button id="refresh" type="button">Detect Cameras</button><button id="start" type="button">START</button>
+<button id="clean" type="button" style="background:#333">Clean Output (for Zoom / OBS)</button>
+</div>
+<p class="note" id="cleanhint">Clean Output hides all buttons and previews - only the combined video stays. Use it before Zoom Share Screen, or in OBS Window Capture. Press <b>Esc</b> or click the video to bring controls back.</p>
+<div class="previews">
+<figure><video id="v1" autoplay playsinline muted></video><figcaption>Camera 1 preview</figcaption></figure>
+<figure><video id="v2" autoplay playsinline muted></video><figcaption>Camera 2 preview</figcaption></figure>
+</div>
+<canvas id="out" width="1280" height="720"></canvas>
+<p id="status" class="note">Status: click Detect Cameras first.</p>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const c1El=$('c1'),c2El=$('c2'),layoutEl=$('layout'),v1=$('v1'),v2=$('v2'),statusEl=$('status'),errEl=$('err'),okEl=$('ok');
+const ctx=$('out').getContext('2d');
+let run=false, streams={};
+function showErr(m){errEl.style.display='block';errEl.textContent=m;}
+function showOk(m){okEl.style.display='block';okEl.textContent=m;}
+function clearMsg(){errEl.style.display='none';okEl.style.display='none';}
+function setStatus(m){statusEl.textContent='Status: '+m;}
+if(!window.isSecureContext){showErr('WARNING: this page is NOT a secure context ('+location.protocol+'). Some browsers block cameras on file:// pages.\nUse the hosted HTTPS link, or open this file in Chrome / Edge and Allow camera permission.');}
+if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){showErr('This browser has no camera API (navigator.mediaDevices missing). Use Chrome or Edge on the HTTPS link.');}
+async function getStream(deviceId){
+  const tries=[
+    {video:{deviceId:{exact:deviceId},width:{ideal:1280},height:{ideal:720}},audio:false},
+    {video:{deviceId:{ideal:deviceId}},audio:false},
+    {video:true,audio:false}];
+  let last=null;
+  for(const t of tries){try{return await navigator.mediaDevices.getUserMedia(t);}catch(e){last=e;}}
+  throw last;
+}
+async function detect(){
+  clearMsg(); setStatus('Asking for camera permission...');
+  let test=null;
+  try{ test=await navigator.mediaDevices.getUserMedia({video:true,audio:false}); }
+  catch(e){ showErr('Camera permission / open FAILED: '+e.name+' - '+e.message+'\nCheck: 1) Click Allow on the permission popup. 2) Close Zoom/Teams - they lock the camera. 3) Windows Settings > Privacy > Camera = ON for browser. 4) Use Chrome/Edge.'); setStatus('Detect failed - see red box above.'); return; }
+  if(test){test.getTracks().forEach(t=>t.stop());}
+  const devs=await navigator.mediaDevices.enumerateDevices();
+  const cams=devs.filter(d=>d.kind==='videoinput');
+  if(!cams.length){showErr('Browser found 0 cameras. Plug in the USB/wired camera, try another USB port direct to the laptop, then Detect again.');setStatus('0 cameras found.');return;}
+  const fill=(el,sel)=>{el.innerHTML='';cams.forEach((c,i)=>{const o=document.createElement('option');o.value=c.deviceId;o.textContent=c.label||('Camera '+(i+1));el.appendChild(o);});if(cams.length>sel)el.selectedIndex=sel;};
+  fill(c1El,0); fill(c2El,cams.length>1?1:0);
+  setStatus('Found '+cams.length+' camera(s): '+cams.map((c,i)=>c.label||('Camera '+(i+1))).join(' | ')+(cams.length===1?' - Only 1 camera: the same camera will be used for both sides for testing. Plug in camera 2 for a real 2-cam view.':''));
+  showOk('Found '+cams.length+' camera(s). Now click START. Check the 2 small previews after starting.');
+}
+async function openCam(el,vid,key){
+  if(el.value && streams[el.value]){vid.srcObject=streams[el.value];await vid.play().catch(()=>{});return streams[el.value];}
+  const s=await getStream(el.value); streams[el.value]=s; vid.srcObject=s; await vid.play().catch(()=>{}); return s;
+}
+function draw(v,x,y,w,h,label){
+  if(v && v.videoWidth){const s=Math.max(w/v.videoWidth,h/v.videoHeight),dw=v.videoWidth*s,dh=v.videoHeight*s;ctx.drawImage(v,x+(w-dw)/2,y+(h-dh)/2,dw,dh);}
+  else{ctx.fillStyle='#181818';ctx.fillRect(x,y,w,h);ctx.fillStyle='#eee';ctx.font='26px Arial';ctx.fillText('Waiting for '+label+'...',x+24,y+h/2);}
+  ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(x,y+h-34,140,34);ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(label,x+10,y+h-11);
+}
+function loop(){
+  if(!run)return;
+  const W=1280,H=720,L=layoutEl.value;ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  if(L==='side'){draw(v1,0,0,W/2,H,'Camera 1');draw(v2,W/2,0,W/2,H,'Camera 2');}
+  else if(L==='top'){draw(v1,0,0,W,H/2,'Camera 1');draw(v2,0,H/2,W,H/2,'Camera 2');}
+  else if(L==='pip'){draw(v1,0,0,W,H,'Camera 1');const pw=W/3,ph=H/3,x=W-pw-16,y=H-ph-16;ctx.save();ctx.beginPath();ctx.rect(x,y,pw,ph);ctx.clip();draw(v2,x,y,pw,ph,'Cam 2');ctx.restore();ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.strokeRect(x,y,pw,ph);}
+  else if(L==='1'){draw(v1,0,0,W,H,'Camera 1');}
+  else{draw(v2,0,0,W,H,'Camera 2');}
+  requestAnimationFrame(loop);
+}
+function stopAll(){run=false;$('start').textContent='START';$('start').classList.remove('stop');Object.values(streams).forEach(s=>s.getTracks().forEach(t=>t.stop()));streams={};v1.srcObject=null;v2.srcObject=null;setStatus('Stopped.');}
+$('clean').addEventListener('click',()=>{document.querySelectorAll('h2,.note,.row,.previews,#status,#err,#ok,figcaption').forEach(e=>e.style.display='none');document.body.style.margin='0';const c=$('out');c.style.maxWidth='100vw';c.title='Click to exit clean mode';});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')location.reload();});
+$('out').addEventListener('click',()=>{if(document.body.style.margin==='0px')location.reload();});
+$('refresh').addEventListener('click',detect);
+$('start').addEventListener('click',async()=>{
+  if(run){stopAll();return;}
+  clearMsg();
+  if(!c1El.options.length){await detect();if(!c1El.options.length)return;}
+  try{
+    await openCam(c1El,v1,'1');
+    if(c2El.options.length)await openCam(c2El,v2,'2');
+  }catch(e){showErr('START FAILED: '+e.name+' - '+e.message+'\nClose Zoom/Teams, unplug and re-plug the USB camera, then Detect > START again.');setStatus('Start failed - see red box.');return;}
+  run=true;$('start').textContent='STOP';$('start').classList.add('stop');
+  layoutEl.value='side'===layoutEl.value?'side':layoutEl.value;
+  loop(); setStatus('Running. Now in Zoom: Share Screen > this browser window. Layout: '+layoutEl.options[layoutEl.selectedIndex].text);
+});
+ctx.fillStyle='#000';ctx.fillRect(0,0,1280,720);ctx.fillStyle='#ccc';ctx.font='30px Arial';ctx.fillText('DualCam v2 - click Detect Cameras, then START',60,360);
+// OBS autostart: open with ?autostart=1 (e.g. in OBS Browser Source) - detect, start, clean output, no clicks
+if(new URLSearchParams(location.search).get('autostart')==='1'){
+  (async()=>{await detect();if(c1El.options.length){$('start').click();setTimeout(()=>{const b=$('clean');if(b)b.click();},1200);}})();
+}
+</script></body></html>
