@@ -39,7 +39,7 @@ body.clean main{grid-template-columns:1fr;padding:0}body.clean .stage{border:0;b
 </style></head><body>
 <header>
 <div><div class="logo">DualCam <span>STUDIO</span></div><div class="sub">2 Cameras + Microphone &rarr; One MAIN Camera Output for Zoom - OBS style</div></div>
-<div class="live"><span class="pill" id="resPill">1280 x 720</span><span class="pill" id="fpsPill">0 fps</span><span class="pill" id="livePill">&#9679; STANDBY</span><span id="clock" class="pill">00:00:00</span></div>
+<div class="live"><button id="btnShareZoomTop" style="background:#2d8cff;border-color:#2d8cff;font-size:14px;padding:9px 16px">SHARE TO ZOOM</button><span class="pill" id="resPill">1280 x 720</span><span class="pill" id="fpsPill">0 fps</span><span class="pill" id="livePill">&#9679; STANDBY</span><span id="clock" class="pill">00:00:00</span></div>
 </header>
 <div id="err"></div>
 <main>
@@ -59,14 +59,14 @@ body.clean main{grid-template-columns:1fr;padding:0}body.clean .stage{border:0;b
 <section>
 <div class="stage"><canvas id="program" width="1280" height="720"></canvas></div>
 <div id="statusbar" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+<button id="btnShareZoom" style="background:#2d8cff;border-color:#2d8cff;font-size:15px;padding:10px 18px">SHARE TO ZOOM</button>
+<input id="meetId" type="text" placeholder="Meeting ID (optional)" style="width:150px;background:#20242b;color:#e8eaed;border:1px solid #343b46;border-radius:7px;padding:8px">
 <button id="btnDetect" class="primary">1. Detect Devices</button>
 <button id="btnStart" class="primary">2. START STUDIO</button>
 <button id="btnClean">Program Only (Clean)</button>
 <button id="btnFull">Fullscreen Program</button>
 <button id="btnSnap">Snapshot</button>
 <button id="btnRec" class="danger">Record A+V</button>
-<button id="btnShareZoom" style="background:#2d8cff;border-color:#2d8cff;font-size:15px;padding:10px 18px">SHARE TO ZOOM</button>
-<input id="meetId" type="text" placeholder="Meeting ID (optional)" style="width:150px;background:#20242b;color:#e8eaed;border:1px solid #343b46;border-radius:7px;padding:8px">
 <span id="status">Plug in both cameras and a microphone, close Zoom/Teams, then Detect Devices.</span>
 </div>
 <div class="srcrow">
@@ -176,14 +176,16 @@ $('btnSwap').addEventListener('click',()=>{const a=c1El.selectedIndex;c1El.selec
 $('vol').addEventListener('input',()=>{$('volVal').textContent=$('vol').value+'%';if(gainNode)gainNode.gain.value=$('vol').value/100;});
 $('btnMute').addEventListener('click',()=>{if(!gainNode)return;const m=gainNode.gain.value!==0;gainNode.gain.value=m?0:$('vol').value/100;$('btnMute').textContent=m?'Unmute Mic':'Mute Mic';});
 $('btnClean').addEventListener('click',()=>{document.body.classList.add('clean');status('Clean program - click the video or press Esc to exit.');});
-$('btnShareZoom').addEventListener('click',async()=>{
+async function shareZoom(){
   if(!run){await detect();await start();}
   document.body.classList.add('clean');
   const mid=($('meetId').value||'').replace(/[^0-9]/g,'');
   const url=mid?('zoommtg://zoom.us/join?confno='+mid):'zoommtg://zoom.us/join';
   const toast=document.createElement('div');toast.textContent='Opening your Zoom APP... In the Zoom meeting: Share Screen > select this window (DualCam Studio). If your PC has the virtual camera driver, instead use Settings > Video > Unity Video Capture.';toast.style.cssText='position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:99;background:#123a6b;border:1px solid #2d8cff;color:#fff;padding:12px 16px;border-radius:10px;max-width:640px;font-size:14px;line-height:1.5';document.body.appendChild(toast);setTimeout(()=>toast.remove(),10000);
   setTimeout(()=>{const a=document.createElement('a');a.href=url;document.body.appendChild(a);a.click();a.remove();},600);
-});
+}
+$('btnShareZoom').addEventListener('click',shareZoom);
+$('btnShareZoomTop').addEventListener('click',shareZoom);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.body.classList.remove('clean');});
 canvas.addEventListener('click',()=>{if(document.body.classList.contains('clean'))document.body.classList.remove('clean');});
 $('btnFull').addEventListener('click',()=>{canvas.requestFullscreen?.();});
