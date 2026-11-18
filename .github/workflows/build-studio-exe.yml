@@ -1,0 +1,30 @@
+name: Build DualCam Studio EXE (Windows)
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: [ 'desktop/**', '.github/workflows/build-studio-exe.yml' ]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install opencv-python numpy Pillow pyvirtualcam sounddevice pyinstaller
+      - name: Build EXE
+        working-directory: desktop
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name DualCamStudio studio_app.py
+      - name: Package with driver setup
+        shell: pwsh
+        run: |
+          Copy-Item desktop/Setup_Virtual_Camera.bat desktop/dist/
+          Copy-Item desktop/README_STUDIO.txt desktop/dist/ -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DualCamStudio-Windows
+          path: |
+            desktop/dist/DualCamStudio.exe
+            desktop/dist/Setup_Virtual_Camera.bat
