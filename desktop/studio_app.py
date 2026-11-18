@@ -134,6 +134,7 @@ class Studio(tk.Tk):
         self.btn_start.pack(side="left")
         self.btn_live = ttk.Button(bar, text="GO LIVE TO ZOOM", style="Live.TButton", command=self.toggle_live)
         self.btn_live.pack(side="left", padx=8)
+        ttk.Button(bar, text="SHARE TO ZOOM", style="Live.TButton", command=self.share_zoom).pack(side="left", padx=(0, 8))
         ttk.Button(bar, text="Record", command=self.toggle_rec).pack(side="left")
         ttk.Button(bar, text="Snapshot", command=self.snapshot).pack(side="left", padx=6)
         self.status = ttk.Label(bar, text="Detecting...")
@@ -309,6 +310,30 @@ class Studio(tk.Tk):
         self.vcam_lbl.config(text=f"Streaming to: {self.vcam.device}\nIn Zoom app: Settings > Video > Camera > select that device.")
         if not self.running:
             self.toggle_run()
+
+    def share_zoom(self):
+        """OBS-style one button: go live on the virtual camera, then open the Zoom app."""
+        import os, webbrowser
+        if not self.running:
+            self.toggle_run()
+        if not self.streaming:
+            self.toggle_live()
+        if not self.streaming:
+            return  # driver missing dialog already shown by toggle_live
+        opened = False
+        try:
+            opened = webbrowser.open("zoommtg://zoom.us/join")
+        except Exception:
+            pass
+        if not opened:
+            for p in (os.path.expandvars(r"%APPDATA%\Zoom\bin\Zoom.exe"),
+                      r"C:\Program Files\Zoom\bin\Zoom.exe",
+                      r"C:\Program Files (x86)\Zoom\bin\Zoom.exe"):
+                if os.path.exists(p):
+                    os.startfile(p)
+                    opened = True
+                    break
+        self.status.config(text="Zoom app opening. In Zoom: Settings > Video > Camera > Unity Video Capture - this Studio is now that camera.")
 
     def loop(self):
         if not self.running:
