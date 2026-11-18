@@ -1,112 +1,193 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DualCam for Zoom v2 - Web Version (No Install)</title>
+<title>DualCam Studio - OBS-style Main Camera for Zoom</title>
 <style>
-body{font-family:system-ui,Arial,sans-serif;background:#111;color:#eee;margin:16px}
-h2{margin:4px 0} select,button{padding:9px 12px;border-radius:8px;border:1px solid #444;background:#222;color:#eee;margin:4px}
-button{background:#0a7d4f;color:#fff;border:0;font-weight:700;cursor:pointer} button.stop{background:#c33}
-canvas{width:100%;max-width:1100px;background:#000;border-radius:12px;display:block}
-.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.note{color:#bbb;max-width:1000px;line-height:1.55}
-#err{display:none;background:#5a1111;border:1px solid #c33;color:#ffd7d7;padding:10px 12px;border-radius:8px;max-width:1000px;white-space:pre-wrap}
-#ok{display:none;background:#0d3b26;border:1px solid #0a7d4f;color:#c9f5df;padding:10px 12px;border-radius:8px;max-width:1000px}
-.previews{display:flex;gap:10px;flex-wrap:wrap}.previews figure{margin:6px 0}.previews video{width:320px;max-width:44vw;background:#000;border-radius:8px;border:1px solid #333}
-figcaption{color:#aaa;font-size:13px;margin-top:4px}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,system-ui,Arial,sans-serif;background:#0b0d10;color:#e8eaed}
+header{display:flex;align-items:center;gap:14px;padding:10px 16px;background:#14171c;border-bottom:1px solid #262b33}
+.logo{font-size:19px;font-weight:800;letter-spacing:.3px}.logo span{color:#e33}
+.sub{color:#9aa3ad;font-size:12.5px}
+.live{margin-left:auto;display:flex;align-items:center;gap:14px}
+.pill{padding:5px 12px;border-radius:999px;background:#23272e;border:1px solid #333a44;font-size:12.5px;font-weight:700}
+.pill.on{background:#5a1111;border-color:#e33;color:#ffb3b3}
+button{padding:8px 13px;border-radius:7px;border:1px solid #343b46;background:#20242b;color:#e8eaed;font-weight:600;cursor:pointer}
+button:hover{background:#2a2f38}button.primary{background:#0a7d4f;border-color:#0a7d4f}button.danger{background:#b02020;border-color:#b02020}
+button.active{outline:2px solid #3ea6ff}
+main{display:grid;grid-template-columns:230px 1fr 300px;gap:10px;padding:10px}
+@media(max-width:1000px){main{grid-template-columns:1fr}}
+.panel{background:#14171c;border:1px solid #262b33;border-radius:10px;padding:12px}
+.panel h3{margin:2px 0 10px;font-size:12px;letter-spacing:1.2px;color:#9aa3ad;text-transform:uppercase}
+.scene{display:block;width:100%;text-align:left;margin:0 0 7px;padding:10px 12px}
+.scene small{display:block;color:#9aa3ad;font-weight:400;margin-top:2px}
+select,input[type=range]{width:100%;margin:4px 0 10px;background:#20242b;color:#e8eaed;border:1px solid #343b46;border-radius:7px;padding:8px}
+label{font-size:12.5px;color:#c6ccd3}
+.stage{background:#000;border-radius:10px;overflow:hidden;border:1px solid #262b33}
+canvas{width:100%;display:block;background:#000}
+.srcrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.src{background:#14171c;border:1px solid #262b33;border-radius:10px;padding:8px}
+.src video{width:100%;border-radius:7px;background:#000}
+.src figcaption{font-size:12.5px;color:#c6ccd3;margin-top:5px;display:flex;justify-content:space-between}
+.dot{width:9px;height:9px;border-radius:50%;background:#555;display:inline-block}.dot.on{background:#2ecc71}
+.meterwrap{background:#0a0c0e;border:1px solid #262b33;border-radius:7px;height:18px;overflow:hidden;margin:5px 0 10px}
+#meter{height:100%;width:0%;background:linear-gradient(90deg,#2ecc71 60%,#f1c40f 80%,#e33)}
+#err{display:none;background:#5a1111;border:1px solid #e33;color:#ffd7d7;padding:10px;border-radius:8px;margin:10px;white-space:pre-wrap}
+#status{color:#9aa3ad;font-size:13px}
+.steps{font-size:13px;line-height:1.65;color:#c6ccd3}.steps b{color:#fff}
+.kbd{background:#20242b;border:1px solid #343b46;border-radius:5px;padding:1px 6px;font-size:12px}
+footer{padding:4px 16px 14px;color:#77808a;font-size:12.5px}
+body.clean header,body.clean .panel,body.clean .srcrow,body.clean footer,body.clean #statusbar{display:none!important}
+body.clean main{grid-template-columns:1fr;padding:0}body.clean .stage{border:0;border-radius:0}
 </style></head><body>
-<h2>DualCam for Zoom - Web Version v2</h2>
-<p class="note"><b>Use Chrome or Edge.</b> Firefox and file:// pages can block cameras. Best is the hosted HTTPS link version.
-Steps: 1) Plug in both cameras, close Zoom / Teams (they lock cameras). 2) Click <b>Detect Cameras</b> and Allow.
-3) Check both small previews show a picture. 4) Layout = Side by Side, click <b>START</b>. 5) In Zoom: Share Screen &gt; this browser window.</p>
-<div id="err"></div><div id="ok"></div>
-<div class="row">
-<label>Camera 1 <select id="c1"></select></label>
-<label>Camera 2 <select id="c2"></select></label>
-<label>Layout <select id="layout">
-<option value="side" selected>Side by Side</option><option value="pip">Picture in Picture</option>
-<option value="top">Top / Bottom</option><option value="1">Cam 1 Only</option><option value="2">Cam 2 Only</option></select></label>
-<button id="refresh" type="button">Detect Cameras</button><button id="start" type="button">START</button>
-<button id="clean" type="button" style="background:#333">Clean Output (for Zoom / OBS)</button>
+<header>
+<div><div class="logo">DualCam <span>STUDIO</span></div><div class="sub">2 Cameras + Microphone &rarr; One MAIN Camera Output for Zoom - OBS style</div></div>
+<div class="live"><span class="pill" id="resPill">1280 x 720</span><span class="pill" id="fpsPill">0 fps</span><span class="pill" id="livePill">&#9679; STANDBY</span><span id="clock" class="pill">00:00:00</span></div>
+</header>
+<div id="err"></div>
+<main>
+<aside class="panel"><h3>Scenes</h3>
+<button class="scene active" data-scene="side">Side by Side<small>Cam 1 left - Cam 2 right</small></button>
+<button class="scene" data-scene="pip">Picture in Picture<small>Cam 2 small, bottom right</small></button>
+<button class="scene" data-scene="pip-tl">PiP Top Left<small>Cam 2 small, top left</small></button>
+<button class="scene" data-scene="top">Top / Bottom<small>Cam 1 top - Cam 2 bottom</small></button>
+<button class="scene" data-scene="cam1">Cam 1 Solo<small>Full screen camera 1</small></button>
+<button class="scene" data-scene="cam2">Cam 2 Solo<small>Full screen camera 2</small></button>
+<h3 style="margin-top:16px">Transition</h3>
+<button class="scene" id="btnCut">Cut / Fade: <b id="transState">Fade</b></button>
+<h3 style="margin-top:16px">Output Size</h3>
+<select id="outSize"><option value="1280x720" selected>720p - 1280 x 720</option><option value="1920x1080">1080p - 1920 x 1080</option><option value="854x480">480p - 854 x 480</option></select>
+</aside>
+
+<section>
+<div class="stage"><canvas id="program" width="1280" height="720"></canvas></div>
+<div id="statusbar" style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+<button id="btnDetect" class="primary">1. Detect Devices</button>
+<button id="btnStart" class="primary">2. START STUDIO</button>
+<button id="btnClean">Program Only (Clean)</button>
+<button id="btnFull">Fullscreen Program</button>
+<button id="btnSnap">Snapshot</button>
+<button id="btnRec" class="danger">Record A+V</button>
+<span id="status">Plug in both cameras and a microphone, close Zoom/Teams, then Detect Devices.</span>
 </div>
-<p class="note" id="cleanhint">Clean Output hides all buttons and previews - only the combined video stays. Use it before Zoom Share Screen, or in OBS Window Capture. Press <b>Esc</b> or click the video to bring controls back.</p>
-<div class="previews">
-<figure><video id="v1" autoplay playsinline muted></video><figcaption>Camera 1 preview</figcaption></figure>
-<figure><video id="v2" autoplay playsinline muted></video><figcaption>Camera 2 preview</figcaption></figure>
+<div class="srcrow">
+<figure class="src" style="margin:0"><video id="v1" autoplay playsinline muted></video><figcaption><span>Camera 1 - <span id="n1">not started</span></span><span class="dot" id="d1"></span></figcaption></figure>
+<figure class="src" style="margin:0"><video id="v2" autoplay playsinline muted></video><figcaption><span>Camera 2 - <span id="n2">not started</span></span><span class="dot" id="d2"></span></figcaption></figure>
 </div>
-<canvas id="out" width="1280" height="720"></canvas>
-<p id="status" class="note">Status: click Detect Cameras first.</p>
+</section>
+
+<aside class="panel"><h3>Sources</h3>
+<label>Camera 1 (webcam)</label><select id="c1"></select>
+<label>Camera 2 (wired / USB)</label><select id="c2"></select>
+<button id="btnSwap" style="width:100%;margin-bottom:12px">Swap Cameras</button>
+<label><input type="checkbox" id="mirror" checked style="width:auto"> Mirror Camera 1</label><br>
+<label><input type="checkbox" id="labels" checked style="width:auto"> Show name labels</label>
+<h3 style="margin-top:18px">Audio Mixer - Microphone</h3>
+<label>Microphone</label><select id="mic"></select>
+<div class="meterwrap"><div id="meter"></div></div>
+<label>Mic volume <span id="volVal">100%</span></label>
+<input type="range" id="vol" min="0" max="150" value="100">
+<button id="btnMute" style="width:100%">Mute Mic</button>
+<h3 style="margin-top:18px">Output - As MAIN Camera in Zoom</h3>
+<div class="steps">
+<b>Video:</b> OBS &gt; Browser Source &gt; this page with <span class="kbd">?autostart=1</span> &gt; Start Virtual Camera &gt; Zoom Video &gt; <b>OBS Virtual Camera</b>.<br>
+<b>Audio:</b> simplest - in Zoom, select the <b>same microphone</b> directly. For OBS-mixed audio: OBS Monitor &gt; VB-Cable &gt; Zoom Mic = CABLE Output.<br>
+<a href="https://www.zoom.com/" target="_blank" rel="noopener" style="color:#3ea6ff">Open zoom.com</a>
+</div>
+</aside>
+</main>
+<footer>DualCam Studio v3 - the Program canvas above is the main output. A browser cannot register itself as a Windows camera or microphone - that device is created by the OBS Virtual Camera driver, exactly as with OBS software. Everything else (mixing, scenes, audio meter, recording) runs here with no install.</footer>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
-const c1El=$('c1'),c2El=$('c2'),layoutEl=$('layout'),v1=$('v1'),v2=$('v2'),statusEl=$('status'),errEl=$('err'),okEl=$('ok');
-const ctx=$('out').getContext('2d');
-let run=false, streams={};
-function showErr(m){errEl.style.display='block';errEl.textContent=m;}
-function showOk(m){okEl.style.display='block';okEl.textContent=m;}
-function clearMsg(){errEl.style.display='none';okEl.style.display='none';}
-function setStatus(m){statusEl.textContent='Status: '+m;}
-if(!window.isSecureContext){showErr('WARNING: this page is NOT a secure context ('+location.protocol+'). Some browsers block cameras on file:// pages.\nUse the hosted HTTPS link, or open this file in Chrome / Edge and Allow camera permission.');}
-if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){showErr('This browser has no camera API (navigator.mediaDevices missing). Use Chrome or Edge on the HTTPS link.');}
-async function getStream(deviceId){
-  const tries=[
-    {video:{deviceId:{exact:deviceId},width:{ideal:1280},height:{ideal:720}},audio:false},
-    {video:{deviceId:{ideal:deviceId}},audio:false},
-    {video:true,audio:false}];
-  let last=null;
-  for(const t of tries){try{return await navigator.mediaDevices.getUserMedia(t);}catch(e){last=e;}}
-  throw last;
+const c1El=$('c1'),c2El=$('c2'),micEl=$('mic'),v1=$('v1'),v2=$('v2'),canvas=$('program'),ctx=canvas.getContext('2d');
+let run=false,scene='side',fade=true,streams={},micStream=null,audioCtx=null,analyser=null,gainNode=null,recDest=null,recorder=null,recChunks=[],startT=0,fpsN=0,fpsT=performance.now();
+function err(m){const e=$('err');e.style.display='block';e.textContent=m;}
+function status(m){$('status').textContent=m;}
+function drawVid(v,x,y,w,h,label,mirror){
+  ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
+  if(v&&v.videoWidth){if(mirror){ctx.translate(x+w,y);ctx.scale(-1,1);x=0;y=0;}
+    const s=Math.max(w/v.videoWidth,h/v.videoHeight),dw=v.videoWidth*s,dh=v.videoHeight*s;
+    ctx.drawImage(v,x+(w-dw)/2,y+(h-dh)/2,dw,dh);}
+  else{ctx.fillStyle='#16181c';ctx.fillRect(x,y,w,h);ctx.fillStyle='#ddd';ctx.font='600 26px Arial';ctx.fillText('Waiting for '+label+'...',x+24,y+h/2);}
+  ctx.restore();
+  if($('labels').checked&&label){ctx.fillStyle='rgba(0,0,0,.68)';ctx.fillRect(x,y+h-34,150,34);ctx.fillStyle='#fff';ctx.font='17px Arial';ctx.fillText(label,x+10,y+h-11);}
 }
-async function detect(){
-  clearMsg(); setStatus('Asking for camera permission...');
-  let test=null;
-  try{ test=await navigator.mediaDevices.getUserMedia({video:true,audio:false}); }
-  catch(e){ showErr('Camera permission / open FAILED: '+e.name+' - '+e.message+'\nCheck: 1) Click Allow on the permission popup. 2) Close Zoom/Teams - they lock the camera. 3) Windows Settings > Privacy > Camera = ON for browser. 4) Use Chrome/Edge.'); setStatus('Detect failed - see red box above.'); return; }
-  if(test){test.getTracks().forEach(t=>t.stop());}
-  const devs=await navigator.mediaDevices.enumerateDevices();
-  const cams=devs.filter(d=>d.kind==='videoinput');
-  if(!cams.length){showErr('Browser found 0 cameras. Plug in the USB/wired camera, try another USB port direct to the laptop, then Detect again.');setStatus('0 cameras found.');return;}
-  const fill=(el,sel)=>{el.innerHTML='';cams.forEach((c,i)=>{const o=document.createElement('option');o.value=c.deviceId;o.textContent=c.label||('Camera '+(i+1));el.appendChild(o);});if(cams.length>sel)el.selectedIndex=sel;};
-  fill(c1El,0); fill(c2El,cams.length>1?1:0);
-  setStatus('Found '+cams.length+' camera(s): '+cams.map((c,i)=>c.label||('Camera '+(i+1))).join(' | ')+(cams.length===1?' - Only 1 camera: the same camera will be used for both sides for testing. Plug in camera 2 for a real 2-cam view.':''));
-  showOk('Found '+cams.length+' camera(s). Now click START. Check the 2 small previews after starting.');
-}
-async function openCam(el,vid,key){
-  if(el.value && streams[el.value]){vid.srcObject=streams[el.value];await vid.play().catch(()=>{});return streams[el.value];}
-  const s=await getStream(el.value); streams[el.value]=s; vid.srcObject=s; await vid.play().catch(()=>{}); return s;
-}
-function draw(v,x,y,w,h,label){
-  if(v && v.videoWidth){const s=Math.max(w/v.videoWidth,h/v.videoHeight),dw=v.videoWidth*s,dh=v.videoHeight*s;ctx.drawImage(v,x+(w-dw)/2,y+(h-dh)/2,dw,dh);}
-  else{ctx.fillStyle='#181818';ctx.fillRect(x,y,w,h);ctx.fillStyle='#eee';ctx.font='26px Arial';ctx.fillText('Waiting for '+label+'...',x+24,y+h/2);}
-  ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(x,y+h-34,140,34);ctx.fillStyle='#fff';ctx.font='18px Arial';ctx.fillText(label,x+10,y+h-11);
+let snap=null,snapA=0;
+function renderScene(){
+  const W=canvas.width,H=canvas.height;ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  if(scene==='side'){drawVid(v1,0,0,W/2,H,'Camera 1',$('mirror').checked);drawVid(v2,W/2,0,W/2,H,'Camera 2',false);}
+  else if(scene==='top'){drawVid(v1,0,0,W,H/2,'Camera 1',$('mirror').checked);drawVid(v2,0,H/2,W,H/2,'Camera 2',false);}
+  else if(scene==='pip'||scene==='pip-tl'){drawVid(v1,0,0,W,H,'Camera 1',$('mirror').checked);const pw=W/3,ph=H/3,x=scene==='pip'?W-pw-18:18,y=scene==='pip'?H-ph-18:18;drawVid(v2,x,y,pw,ph,'Cam 2',false);ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.strokeRect(x,y,pw,ph);}
+  else if(scene==='cam1'){drawVid(v1,0,0,W,H,'Camera 1',$('mirror').checked);}
+  else{drawVid(v2,0,0,W,H,'Camera 2',false);}
 }
 function loop(){
   if(!run)return;
-  const W=1280,H=720,L=layoutEl.value;ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
-  if(L==='side'){draw(v1,0,0,W/2,H,'Camera 1');draw(v2,W/2,0,W/2,H,'Camera 2');}
-  else if(L==='top'){draw(v1,0,0,W,H/2,'Camera 1');draw(v2,0,H/2,W,H/2,'Camera 2');}
-  else if(L==='pip'){draw(v1,0,0,W,H,'Camera 1');const pw=W/3,ph=H/3,x=W-pw-16,y=H-ph-16;ctx.save();ctx.beginPath();ctx.rect(x,y,pw,ph);ctx.clip();draw(v2,x,y,pw,ph,'Cam 2');ctx.restore();ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.strokeRect(x,y,pw,ph);}
-  else if(L==='1'){draw(v1,0,0,W,H,'Camera 1');}
-  else{draw(v2,0,0,W,H,'Camera 2');}
+  renderScene();
+  if(snap&&fade){ctx.globalAlpha=snapA;ctx.drawImage(snap,0,0);ctx.globalAlpha=1;snapA-=0.09;if(snapA<=0)snap=null;}
+  else if(snap){snap=null;}
+  fpsN++;const now=performance.now();
+  if(now-fpsT>=1000){$('fpsPill').textContent=Math.round(fpsN*1000/(now-fpsT))+' fps';fpsN=0;fpsT=now;
+    const t=Math.floor((now-startT)/1000);$('clock').textContent=String(Math.floor(t/3600)).padStart(2,'0')+':'+String(Math.floor(t/60)%60).padStart(2,'0')+':'+String(t%60).padStart(2,'0');}
+  if(analyser){const a=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(a);let sum=0;for(let i=0;i<a.length;i++)sum+=a[i];$('meter').style.width=Math.min(100,sum/a.length*2.2)+'%';}
   requestAnimationFrame(loop);
 }
-function stopAll(){run=false;$('start').textContent='START';$('start').classList.remove('stop');Object.values(streams).forEach(s=>s.getTracks().forEach(t=>t.stop()));streams={};v1.srcObject=null;v2.srcObject=null;setStatus('Stopped.');}
-$('clean').addEventListener('click',()=>{document.querySelectorAll('h2,.note,.row,.previews,#status,#err,#ok,figcaption').forEach(e=>e.style.display='none');document.body.style.margin='0';const c=$('out');c.style.maxWidth='100vw';c.title='Click to exit clean mode';});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')location.reload();});
-$('out').addEventListener('click',()=>{if(document.body.style.margin==='0px')location.reload();});
-$('refresh').addEventListener('click',detect);
-$('start').addEventListener('click',async()=>{
-  if(run){stopAll();return;}
-  clearMsg();
-  if(!c1El.options.length){await detect();if(!c1El.options.length)return;}
-  try{
-    await openCam(c1El,v1,'1');
-    if(c2El.options.length)await openCam(c2El,v2,'2');
-  }catch(e){showErr('START FAILED: '+e.name+' - '+e.message+'\nClose Zoom/Teams, unplug and re-plug the USB camera, then Detect > START again.');setStatus('Start failed - see red box.');return;}
-  run=true;$('start').textContent='STOP';$('start').classList.add('stop');
-  layoutEl.value='side'===layoutEl.value?'side':layoutEl.value;
-  loop(); setStatus('Running. Now in Zoom: Share Screen > this browser window. Layout: '+layoutEl.options[layoutEl.selectedIndex].text);
-});
-ctx.fillStyle='#000';ctx.fillRect(0,0,1280,720);ctx.fillStyle='#ccc';ctx.font='30px Arial';ctx.fillText('DualCam v2 - click Detect Cameras, then START',60,360);
-// OBS autostart: open with ?autostart=1 (e.g. in OBS Browser Source) - detect, start, clean output, no clicks
-if(new URLSearchParams(location.search).get('autostart')==='1'){
-  (async()=>{await detect();if(c1El.options.length){$('start').click();setTimeout(()=>{const b=$('clean');if(b)b.click();},1200);}})();
+async function gum(tries){let last=null;for(const t of tries){try{return await navigator.mediaDevices.getUserMedia(t);}catch(e){last=e;}}throw last;}
+async function detect(){
+  $('err').style.display='none';
+  let test=null;
+  try{test=await navigator.mediaDevices.getUserMedia({video:true,audio:true});}
+  catch(e){err('Permission FAILED: '+e.name+' - '+e.message+'\nAllow camera + microphone, close Zoom/Teams (they lock devices), use Chrome/Edge on this HTTPS link.');return false;}
+  if(test)test.getTracks().forEach(t=>t.stop());
+  const devs=await navigator.mediaDevices.enumerateDevices();
+  const fill=(el,list,sel)=>{el.innerHTML='';list.forEach((d,i)=>{const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||('Device '+(i+1));el.appendChild(o);});if(list.length>sel)el.selectedIndex=sel;};
+  const vids=devs.filter(d=>d.kind==='videoinput'),auds=devs.filter(d=>d.kind==='audioinput');
+  fill(c1El,vids,0);fill(c2El,vids,vids.length>1?1:0);fill(micEl,auds,0);
+  status('Found '+vids.length+' camera(s), '+auds.length+' microphone(s). Now START STUDIO.');
+  return vids.length>0;
 }
+async function openDev(el,vid){
+  if(!el.value)return null;
+  if(streams[el.value]){vid.srcObject=streams[el.value];await vid.play().catch(()=>{});return streams[el.value];}
+  const s=await gum([{video:{deviceId:{exact:el.value},width:{ideal:1920},height:{ideal:1080}},audio:false},{video:{deviceId:{ideal:el.value}},audio:false},{video:true,audio:false}]);
+  streams[el.value]=s;vid.srcObject=s;await vid.play().catch(()=>{});return s;
+}
+async function start(){
+  if(run){stop();return;}
+  if(!c1El.options.length){if(!await detect())return;}
+  try{
+    await openDev(c1El,v1);$('n1').textContent=c1El.options[c1El.selectedIndex]?.textContent||'Camera 1';$('d1').classList.add('on');
+    if(c2El.options.length){await openDev(c2El,v2);$('n2').textContent=c2El.options[c2El.selectedIndex]?.textContent||'Camera 2';$('d2').classList.add('on');}
+    if(micEl.value){micStream=await gum([{audio:{deviceId:{exact:micEl.value}},video:false},{audio:true,video:false}]);
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      const src=audioCtx.createMediaStreamSource(micStream);analyser=audioCtx.createAnalyser();analyser.fftSize=256;
+      gainNode=audioCtx.createGain();gainNode.gain.value=$('vol').value/100;
+      recDest=audioCtx.createMediaStreamDestination();src.connect(analyser);src.connect(gainNode);gainNode.connect(recDest);}
+  }catch(e){err('START FAILED: '+e.name+' - '+e.message+'\nClose Zoom/Teams, re-plug the USB camera, Detect again.');return;}
+  const [W,H]=$('outSize').value.split('x').map(Number);canvas.width=W;canvas.height=H;$('resPill').textContent=W+' x '+H;
+  run=true;startT=performance.now();$('btnStart').textContent='STOP STUDIO';$('livePill').innerHTML='&#9679; LIVE - PROGRAM ON AIR';$('livePill').classList.add('on');
+  status('LIVE. Program output is running - feed it to Zoom as MAIN camera via OBS Virtual Camera (steps on the right).');loop();
+}
+function stop(){run=false;Object.values(streams).forEach(s=>s.getTracks().forEach(t=>t.stop()));streams={};if(micStream)micStream.getTracks().forEach(t=>t.stop());if(audioCtx)audioCtx.close();v1.srcObject=null;v2.srcObject=null;$('btnStart').textContent='2. START STUDIO';$('livePill').innerHTML='&#9679; STANDBY';$('livePill').classList.remove('on');$('d1').classList.remove('on');$('d2').classList.remove('on');status('Stopped.');}
+document.querySelectorAll('.scene[data-scene]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.scene[data-scene]').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(run&&b.dataset.scene!==scene){const s=document.createElement('canvas');s.width=canvas.width;s.height=canvas.height;s.getContext('2d').drawImage(canvas,0,0);snap=s;snapA=1;}scene=b.dataset.scene;}));
+$('btnCut').addEventListener('click',()=>{fade=!fade;$('transState').textContent=fade?'Fade':'Cut';});
+$('btnDetect').addEventListener('click',detect);
+$('btnStart').addEventListener('click',start);
+$('btnSwap').addEventListener('click',()=>{const a=c1El.selectedIndex;c1El.selectedIndex=c2El.selectedIndex;c2El.selectedIndex=a;if(run){stop();start();}});
+$('vol').addEventListener('input',()=>{$('volVal').textContent=$('vol').value+'%';if(gainNode)gainNode.gain.value=$('vol').value/100;});
+$('btnMute').addEventListener('click',()=>{if(!gainNode)return;const m=gainNode.gain.value!==0;gainNode.gain.value=m?0:$('vol').value/100;$('btnMute').textContent=m?'Unmute Mic':'Mute Mic';});
+$('btnClean').addEventListener('click',()=>{document.body.classList.add('clean');status('Clean program - click the video or press Esc to exit.');});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.body.classList.remove('clean');});
+canvas.addEventListener('click',()=>{if(document.body.classList.contains('clean'))document.body.classList.remove('clean');});
+$('btnFull').addEventListener('click',()=>{canvas.requestFullscreen?.();});
+$('btnSnap').addEventListener('click',()=>{const a=document.createElement('a');a.download='dualcam-studio.png';a.href=canvas.toDataURL('image/png');a.click();});
+$('btnRec').addEventListener('click',()=>{
+  if(recorder){recorder.stop();return;}
+  if(!run){err('Start the Studio first, then Record.');return;}
+  const vs=canvas.captureStream(30);const tracks=[...vs.getVideoTracks()];if(recDest)tracks.push(...recDest.stream.getAudioTracks());
+  recorder=new MediaRecorder(new MediaStream(tracks),{mimeType:'video/webm'});recChunks=[];
+  recorder.ondataavailable=e=>recChunks.push(e.data);
+  recorder.onstop=()=>{const b=new Blob(recChunks,{type:'video/webm'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='dualcam-recording.webm';a.click();recorder=null;$('btnRec').textContent='Record A+V';status('Recording saved - video + microphone audio in one file.');};
+  recorder.start();$('btnRec').textContent='Stop Recording';status('Recording Program (video + mic audio)...');});
+$('outSize').addEventListener('change',()=>{const [W,H]=$('outSize').value.split('x').map(Number);canvas.width=W;canvas.height=H;$('resPill').textContent=W+' x '+H;});
+if(new URLSearchParams(location.search).get('autostart')==='1'){(async()=>{if(await detect()){await start();document.body.classList.add('clean');}})();}
+ctx.fillStyle='#000';ctx.fillRect(0,0,1280,720);ctx.fillStyle='#cfd4da';ctx.font='600 30px Arial';ctx.fillText('DualCam STUDIO',48,330);ctx.font='20px Arial';ctx.fillStyle='#8a929c';ctx.fillText('Detect Devices, then START STUDIO',48,368);
 </script></body></html>
