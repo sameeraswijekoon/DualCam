@@ -73,7 +73,7 @@ class Studio(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("DualCam Studio - OBS Replacement for Zoom")
-        self.geometry("1240x760")
+        self.geometry("1310x800")
         self.configure(bg=BG)
         self.caps, self.running, self.streaming = {}, False, False
         self.vcam, self.vcam_ctx = None, None
@@ -100,72 +100,91 @@ class Studio(tk.Tk):
         st.configure("Live.TButton", background="#b02020", foreground="white", font=("Segoe UI", 11, "bold"), padding=9)
 
     def _ui(self):
+        # OBS-style layout: top bar / PROGRAM centre / bottom docks
+        # (Scenes - Sources - Audio Mixer - Virtual Camera - Controls)
         top = tk.Frame(self, bg=PANEL, height=52)
         top.pack(fill="x")
         tk.Label(top, text="DualCam  STUDIO", bg=PANEL, fg=TXT, font=("Segoe UI", 16, "bold")).pack(side="left", padx=14, pady=8)
-        tk.Label(top, text="OBS replacement - 2 cameras + mic - own virtual camera to Zoom", bg=PANEL, fg=MUT, font=("Segoe UI", 10)).pack(side="left")
+        tk.Label(top, text="OBS-style studio - 2 cameras + mic - own virtual camera to Zoom (no OBS)", bg=PANEL, fg=MUT, font=("Segoe UI", 10)).pack(side="left")
         self.live_lbl = tk.Label(top, text="  STANDBY  ", bg=PANEL2, fg=TXT, font=("Segoe UI", 11, "bold"))
         self.live_lbl.pack(side="right", padx=14)
         self.fps_lbl = tk.Label(top, text="", bg=PANEL, fg=MUT, font=("Segoe UI", 10))
         self.fps_lbl.pack(side="right")
 
-        body = ttk.Frame(self)
-        body.pack(fill="both", expand=True, padx=8, pady=8)
+        prog_head = tk.Frame(self, bg=BG)
+        prog_head.pack(fill="x", padx=10, pady=(8, 0))
+        tk.Label(prog_head, text="● PROGRAM", bg=BG, fg="#ff5347", font=("Segoe UI", 10, "bold")).pack(side="left")
+        tk.Label(prog_head, text="  -  what Zoom receives", bg=BG, fg=MUT, font=("Segoe UI", 9)).pack(side="left")
+        self.preview = tk.Label(self, bg="black")
+        self.preview.pack(fill="both", expand=True, padx=10, pady=(4, 8))
 
-        left = ttk.Frame(body, style="Panel.TFrame", width=210)
-        left.pack(side="left", fill="y", padx=(0, 8))
-        ttk.Label(left, text="SCENES", style="Head.TLabel").pack(anchor="w", padx=10, pady=(10, 4))
-        for key, name, sub in [("side", "Side by Side", "Cam 1 left - Cam 2 right"), ("pip", "Picture in Picture", "Cam 2 bottom right"),
-                               ("top", "Top / Bottom", ""), ("cam1", "Cam 1 Solo", ""), ("cam2", "Cam 2 Solo", "")]:
-            ttk.Radiobutton(left, text=name, value=key, variable=self.scene).pack(anchor="w", padx=12, pady=2)
-        ttk.Label(left, text="OUTPUT SIZE", style="Head.TLabel").pack(anchor="w", padx=10, pady=(14, 4))
-        self.outsize = ttk.Combobox(left, state="readonly", values=list(OUT), width=20)
+        docks = tk.Frame(self, bg=BG)
+        docks.pack(fill="x", padx=10, pady=(0, 6))
+
+        def dock(title, w):
+            f = tk.Frame(docks, bg=PANEL, width=w, height=196)
+            f.pack(side="left", fill="y", padx=(0, 8))
+            f.pack_propagate(False)
+            tk.Label(f, text=title, bg=PANEL, fg=MUT, font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=10, pady=(8, 5))
+            return f
+
+        sc = dock("SCENES", 208)
+        for key, name in [("side", "Side by Side"), ("pip", "Picture in Picture"), ("pip2", "PiP - Cam 1 Small"), ("top", "Top / Bottom"), ("cam1", "Cam 1 Solo"), ("cam2", "Cam 2 Solo")]:
+            tk.Radiobutton(sc, text=name, value=key, variable=self.scene, bg=PANEL, fg=TXT,
+                           activebackground=PANEL, activeforeground=TXT, selectcolor=PANEL2,
+                           font=("Segoe UI", 10), anchor="w").pack(fill="x", padx=8, pady=1)
+        tk.Label(sc, text="Output size", bg=PANEL, fg=MUT, font=("Segoe UI", 9)).pack(anchor="w", padx=10, pady=(8, 2))
+        self.outsize = ttk.Combobox(sc, state="readonly", values=list(OUT), width=21)
         self.outsize.set("720p  1280 x 720")
-        self.outsize.pack(padx=10)
-        ttk.Label(left, text="In Zoom app select camera:\nUnity Video Capture", style="Panel.TLabel").pack(anchor="w", padx=10, pady=14)
+        self.outsize.pack(padx=10, anchor="w")
 
-        centre = ttk.Frame(body)
-        centre.pack(side="left", fill="both", expand=True)
-        self.preview = tk.Label(centre, bg="black")
-        self.preview.pack(fill="both", expand=True)
-        bar = ttk.Frame(centre)
-        bar.pack(fill="x", pady=8)
-        self.btn_start = ttk.Button(bar, text="START STUDIO", style="Go.TButton", command=self.toggle_run)
-        self.btn_start.pack(side="left")
-        self.btn_live = ttk.Button(bar, text="GO LIVE TO ZOOM", style="Live.TButton", command=self.toggle_live)
-        self.btn_live.pack(side="left", padx=8)
-        ttk.Button(bar, text="SHARE TO ZOOM", style="Live.TButton", command=self.share_zoom).pack(side="left", padx=(0, 8))
-        ttk.Button(bar, text="Record", command=self.toggle_rec).pack(side="left")
-        ttk.Button(bar, text="Snapshot", command=self.snapshot).pack(side="left", padx=6)
-        self.status = ttk.Label(bar, text="Detecting...")
-        self.status.pack(side="left", padx=10)
-
-        right = ttk.Frame(body, style="Panel.TFrame", width=280)
-        right.pack(side="left", fill="y", padx=(8, 0))
-        ttk.Label(right, text="SOURCES", style="Head.TLabel").pack(anchor="w", padx=10, pady=(10, 4))
-        ttk.Label(right, text="Camera 1 (webcam)", style="Panel.TLabel").pack(anchor="w", padx=10)
-        self.cam1 = ttk.Combobox(right, state="readonly", width=30)
-        self.cam1.pack(padx=10, pady=(0, 6))
-        ttk.Label(right, text="Camera 2 (wired / USB)", style="Panel.TLabel").pack(anchor="w", padx=10)
-        self.cam2 = ttk.Combobox(right, state="readonly", width=30)
-        self.cam2.pack(padx=10, pady=(0, 6))
-        ttk.Button(right, text="Detect Devices", command=self.refresh).pack(padx=10, anchor="w")
-        ttk.Button(right, text="Swap Cameras", command=self.swap).pack(padx=10, pady=6, anchor="w")
+        so = dock("SOURCES", 252)
+        tk.Label(so, text="Camera 1 (webcam)", bg=PANEL, fg=TXT, font=("Segoe UI", 10)).pack(anchor="w", padx=10)
+        self.cam1 = ttk.Combobox(so, state="readonly", width=30)
+        self.cam1.pack(padx=10, pady=(0, 5))
+        tk.Label(so, text="Camera 2 (wired / USB)", bg=PANEL, fg=TXT, font=("Segoe UI", 10)).pack(anchor="w", padx=10)
+        self.cam2 = ttk.Combobox(so, state="readonly", width=30)
+        self.cam2.pack(padx=10, pady=(0, 5))
+        btnrow = tk.Frame(so, bg=PANEL)
+        btnrow.pack(anchor="w", padx=10)
+        ttk.Button(btnrow, text="Detect Devices", command=self.refresh).pack(side="left")
+        ttk.Button(btnrow, text="Swap", command=self.swap).pack(side="left", padx=6)
         self.mirror = tk.BooleanVar(value=True)
-        ttk.Checkbutton(right, text="Mirror Camera 1", variable=self.mirror).pack(anchor="w", padx=10)
+        tk.Checkbutton(so, text="Mirror Camera 1", variable=self.mirror, bg=PANEL, fg=TXT, activebackground=PANEL, activeforeground=TXT, selectcolor=PANEL2, font=("Segoe UI", 10)).pack(anchor="w", padx=8, pady=(6, 0))
         self.labels = tk.BooleanVar(value=True)
-        ttk.Checkbutton(right, text="Show labels", variable=self.labels).pack(anchor="w", padx=10)
-        ttk.Label(right, text="AUDIO MIXER - MICROPHONE", style="Head.TLabel").pack(anchor="w", padx=10, pady=(16, 4))
-        ttk.Label(right, text="Microphone", style="Panel.TLabel").pack(anchor="w", padx=10)
-        self.mic = ttk.Combobox(right, state="readonly", width=30)
+        tk.Checkbutton(so, text="Show labels", variable=self.labels, bg=PANEL, fg=TXT, activebackground=PANEL, activeforeground=TXT, selectcolor=PANEL2, font=("Segoe UI", 10)).pack(anchor="w", padx=8)
+
+        mx = dock("AUDIO MIXER", 252)
+        tk.Label(mx, text="Microphone", bg=PANEL, fg=TXT, font=("Segoe UI", 10)).pack(anchor="w", padx=10)
+        self.mic = ttk.Combobox(mx, state="readonly", width=30)
         self.mic.pack(padx=10, pady=(0, 6))
-        self.meter = tk.Canvas(right, width=250, height=16, bg="#0a0c0e", highlightthickness=1, highlightbackground="#333")
-        self.meter.pack(padx=10)
-        self.meter_bar = self.meter.create_rectangle(0, 0, 0, 16, fill="#2ecc71", outline="")
-        ttk.Label(right, text="Zoom audio: select this same\nmicrophone in the Zoom app.", style="Panel.TLabel").pack(anchor="w", padx=10, pady=10)
-        ttk.Label(right, text="VIRTUAL CAMERA", style="Head.TLabel").pack(anchor="w", padx=10, pady=(10, 4))
-        self.vcam_lbl = ttk.Label(right, text="Not streaming", style="Panel.TLabel", wraplength=250)
+        self.meter = tk.Canvas(mx, width=228, height=18, bg="#0a0c0e", highlightthickness=1, highlightbackground="#333")
+        self.meter.pack(padx=10, anchor="w")
+        self.meter_bar = self.meter.create_rectangle(0, 0, 0, 18, fill="#2ecc71", outline="")
+        tk.Label(mx, text="-60        -40        -20         0 dB", bg=PANEL, fg=MUT, font=("Segoe UI", 8)).pack(anchor="w", padx=10)
+        tk.Label(mx, text="Zoom audio: select this same\nmicrophone in the Zoom app.", bg=PANEL, fg=MUT, font=("Segoe UI", 9)).pack(anchor="w", padx=10, pady=(8, 0))
+
+        vc = dock("VIRTUAL CAMERA", 218)
+        self.vcam_lbl = tk.Label(vc, text="Not streaming", bg=PANEL, fg=TXT, font=("Segoe UI", 10), wraplength=196, justify="left")
         self.vcam_lbl.pack(anchor="w", padx=10)
+        tk.Label(vc, text="In Zoom app select camera:\nUnity Video Capture", bg=PANEL, fg=MUT, font=("Segoe UI", 9), justify="left").pack(anchor="w", padx=10, pady=(8, 0))
+
+        ct = tk.Frame(docks, bg=PANEL, width=218, height=196)
+        ct.pack(side="left", fill="y")
+        ct.pack_propagate(False)
+        tk.Label(ct, text="CONTROLS", bg=PANEL, fg=MUT, font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=10, pady=(8, 5))
+        self.btn_start = ttk.Button(ct, text="START STUDIO", style="Go.TButton", command=self.toggle_run)
+        self.btn_start.pack(fill="x", padx=10, pady=(0, 5))
+        self.btn_live = ttk.Button(ct, text="GO LIVE TO ZOOM", style="Live.TButton", command=self.toggle_live)
+        self.btn_live.pack(fill="x", padx=10, pady=(0, 5))
+        ttk.Button(ct, text="SHARE TO ZOOM", style="Live.TButton", command=self.share_zoom).pack(fill="x", padx=10, pady=(0, 5))
+        row = tk.Frame(ct, bg=PANEL)
+        row.pack(fill="x", padx=10)
+        ttk.Button(row, text="Record", command=self.toggle_rec).pack(side="left", fill="x", expand=True)
+        ttk.Button(row, text="Snapshot", command=self.snapshot).pack(side="left", fill="x", expand=True, padx=(6, 0))
+
+        self.status = tk.Label(self, text="Detecting...", bg=PANEL, fg=MUT, font=("Segoe UI", 9), anchor="w")
+        self.status.pack(fill="x", padx=0, pady=(2, 0))
 
     # ---------- devices ----------
     def refresh(self):
@@ -242,6 +261,13 @@ class Studio(tk.Tk):
             return label(fit(f2, W, H), "Camera 2" if lab else "")
         if s == "top":
             return np.vstack([label(fit(f1, W, H // 2), "Camera 1" if lab else ""), label(fit(f2, W, H - H // 2), "Camera 2" if lab else "")])
+        if s == "pip2":
+            base = label(fit(f2, W, H), "Camera 2" if lab else "")
+            pw, ph = W // 3, H // 3
+            small = fit(f1, pw, ph)
+            cv2.rectangle(small, (0, 0), (pw - 1, ph - 1), (255, 255, 255), 3)
+            base[H - ph - 16:H - 16, W - pw - 16:W - 16] = small
+            return base
         if s == "pip":
             base = label(fit(f1, W, H), "Camera 1" if lab else "")
             pw, ph = W // 3, H // 3
@@ -357,8 +383,9 @@ class Studio(tk.Tk):
         if now - self.fps_t >= 1:
             self.fps_lbl.config(text=f"{self.fps_n / (now - self.fps_t):.0f} fps  {W}x{H}")
             self.fps_t, self.fps_n = now, 0
-        lvl = min(250, int(self.mic_level * 900))
-        self.meter.coords(self.meter_bar, 0, 0, lvl, 16)
+        lvl = min(228, int(self.mic_level * 820))
+        self.meter.coords(self.meter_bar, 0, 0, lvl, 18)
+        self.meter.itemconfig(self.meter_bar, fill="#e33" if lvl > 200 else "#f5c542" if lvl > 165 else "#2ecc71")
         img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         img.thumbnail((820, 470))
         tkimg = ImageTk.PhotoImage(img)
